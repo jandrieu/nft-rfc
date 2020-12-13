@@ -13,7 +13,7 @@ modified:
 
 This standard describes a set of interfaces that can be utilised to build an inter-chain non-fungible token implementation.
 
-InterNFT is a natively implemented NFT structure for Blockchain applications that implement interoperability protocols. The interNFT is defined by a basic interface that any NFT structure has to implement to be called an interNFT. The ownership of interNFT is maintained by the interNFT wallet. The combination of interNFT and interNFT wallet allows the ownership of the interNFT to be exchanged across interoperable chains while the execution logic of the NFT is still maintained at the native chain.
+InterNFT is a natively implemented NFT structure for Blockchain applications that implement interoperability protocols. The interNFT standard is defined by a basic interface that any NFT structure has to implement to be classified as an interNFT. The ownership of interNFT is maintained by the interNFT wallet. The combination of interNFT and interNFT wallet allows the ownership of the interNFT to be exchanged across interoperable chains while the execution logic of the NFT minting and mutation is still maintained at the native chain.
 
 ### Motivation
 
@@ -32,7 +32,7 @@ This will allow all projects in the inter-chain ecosystem to:
 
 ### Definitions
 
-* `interNFT`: An implementation of the `NFT` interface. The `interNFT` is defined to allow for maximum application logic flexibility in one interface and is focused on interchain ownership transfer. In this document `interNFT` will also refer to a basic interface, implementation of which will classify a structure as an `interNFT`
+* `interNFT`: An extension of the `NFT` interface. The `interNFT` is defined to allow for maximum application logic flexibility in one interface and is focused on interchain ownership transfer. In this document `interNFT` will also refer to a basic interface, implementation of which will classify a structure as an `interNFT`
 
 * `classification`: a representation of the type or grouping for an `interNFT`, e.g. an `interNFT` "Toyota Corolla" will be of `classification` car.
 
@@ -90,14 +90,20 @@ The NFT module is implemented at the native chain application logic level instea
 
 ## Technical Specification
 
-
 ####  InterNFT interface 
 
 An interface that implements the NFT interface, adding interoperability functionalities to it 
-
+```
+type InterNFT interface {
+	types.NFT
+	traits.HasImmutables
+	traits.HasMutables
+	traits.Burnable
+	traits.Lockable
+}
 InterNFT interface {
 
-    // Implementing the NFT interface
+    // Implementing the NFT interface 
     NFT
 
     // ChainID returns the idendtifier, for the NFT's native Chain, as an ID interface
@@ -118,65 +124,77 @@ InterNFT interface {
     // CanBurn returns a boolean telling if the interNFT can be burnt or not given the current height
    CanBurn(Height) bool
 }
+```
+#### HasImmutables Interface
+```
+   HasImmutables interface {
 
-#### Height interface
+   GetImmutables() types.Immutables
 
-An interface to define a block height type for a chain, used as a metric of time.
+   }
+```
 
-{
-    Height interface {
-
-    // Count returns the block count for the Height
-   Count() string
-
-    //Current height 
-    // IsGraterThat returns a Boolean to tell if the Height is grater than a given Height/Current Height
-   IsGraterThat(Height) bool
+#### HasMutables Interface
+```
+   type HasMutables interface {
+   
+   GetMutables() types.Mutables
 }
+```
+type Burnable interface {
+GetBurn() types.Property
+}
+type Lockable interface {
+GetLock() types.Property
+}
+type Mutables interface {
+Get() Properties
+Mutate(...Property) Mutables
+}
+type HasImmutables interface {
+GetImmutables() types.Immutables
+}
+type Property interface {
+GetID() ID
+GetFact() Fact
+}
+type Fact interface {
+GetHash() string
+GetType() string
+GetSignatures() Signatures
 
+	Sign(keyring.Keyring) Fact
+}
+type MetaFact interface {
+GetData() Data
+RemoveData() Fact
+Fact
+}
+type Signature interface {
+// String returns the human-readable string format of the Signature
+String() string
+// Bytes returns the byte array of the cryptographic signature
+Bytes() []byte
+// ID returns the identifier for the Signature as an ID interface
+	GetID() ID
+
+// Verify returns a boolean to tell if the signature is valid of not given the public key of the signer and the signed bytes
+	Verify(crypto.PubKey, []byte) bool
+	GetValidityHeight() Height
+// HasExpired returns a boolean to tell if the Signature has expired given a Height/Current Height interface
+	HasExpired(Height) bool
+}
 #### Signature interface 
 
 An interface for any type that represents a cryptographic signature that can be verified
 
-Signature interface {
 
-    // String returns the human-readable string format of the Signature
-   String() string
-
-   // Bytes returns the byte array of the cryptographic signature 
-   Bytes() []byte
-
-    // ID returns the identifier for the Signature as an ID interface
-   ID() ID
-
-   // Verify returns a boolean to tell if the signature is valid of not given the public key of the signer and the signed bytes
-    Verify(PublicKey, []byte) bool
-
-    // HasExpired returns a boolean to tell if the Signature has expired given a Height/Current Height interface
-    HasExpired(Height) bool
-}
-
-#### Signatures interface 
-
-An interface for a container of a collection of Signatures. The Interface handles the deterministic operations on the Signature collection.  
-
-Signatures interface {
-
-    // Get returns a Signature stored in the Signatures given an Identifier for it
-   Get(ID) Signature
-
-    // Add appends a given Signature with the Signatures Collection
-   Add(Signature) error
-   // Add removes a given Signature from the Signatures Collection
-   Remove(Signature) error
-   // Add mutates a given Signature in the Signatures Collection
-   Mutate(Signature) error
-}
 
 #### Fact interface 
 
 An interface to define a type for any kind of information is the system which is non-consequential to the application logic but has to be stored for provenance. 
 
+```
 Fact interface  {
 
     // String returns the human-readable string format of the information stored by the Fact
@@ -188,11 +206,13 @@ Fact interface  {
     // Signatures return the cyptographic signatures on the Fact as Signatures interface 
    Signatures() Signatures
 }
+```
 
 #### Property interface
 
 An interface to define any kind of property associated with an interNFT
 
+```
 Property interface {
 
     // Name returns the name of the Property
@@ -204,49 +224,7 @@ Property interface {
    // Fact returns the Fact associated with the Property
    Fact() Fact
 }
-
-#### Properties interface 
-
-An interface for a container of a collection of Properties. The Interface handles the deterministic operations on the Property collection.  
-
-Properties interface {
-
-    // ID returns the identifier, of the Properties, as an ID interface
-   Get(ID) Property
-
-    // Add appends the given Property with the Properties collection 
-   Add(Property) error
-   // Add removes the given Property from the Property collection
-   Remove(Property) error
-   // Add mutates the given Property in the Property collection
-   Mutate(Property) error
-}
-
-#### Properties interface 
-
-An interface for any type of Trait associated with a Classification of interNFT 
-
-Trait interface {
-
-    // Name returns the name of the Trait
-   Name() string
-
-   // ID returns the identifier, for a Trait, as an ID interface
-   ID() ID
-
-    // IsMutable returns a Boolean to tell if a property value of Trait can be mutated or not
-   IsMutable() bool
-}
-
-#### Traits interface 
-
-An interface for a container of a collection of Traits. The Interface handles the deterministic operations on the Trait collection. 
-
-Traits interface {
-
-    // Get returns a Trait for the given ID
-   Get(ID) Trait
-}
+```
 
 #### Classification interface 
 
